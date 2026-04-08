@@ -10,3 +10,4 @@ transform/target/
 transform/target_prod/
 transform/dbt_packages/
 *.stackdump
+transform/target_prod/manifest.json
