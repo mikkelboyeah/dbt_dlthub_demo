@@ -7,3 +7,6 @@ data/*.duckdb
 reports/node_modules/
 reports/.evidence*/
 transform/target/
+transform/target_prod/
+transform/dbt_packages/
+*.stackdump

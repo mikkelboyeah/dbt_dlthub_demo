@@ -4,11 +4,44 @@ from __future__ import annotations
 from pathlib import Path
 import dlt
 import os
+import requests
+import urllib3
 
-DEFAULT_DB_PATH = Path("data/db.duckdb")
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Use absolute path to ensure dlt places the duckdb in the sandbox, not a relative path that changes
+PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
+DEFAULT_DB_PATH = PROJECT_DIR / "data" / "db.duckdb"
+
+@dlt.resource(name="weather_oslo", write_disposition="replace")
+def get_weather_data():
+    """Fetch weather data for Oslo from yr.no."""
+    url = "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=59.91&lon=10.75"
+    headers = {
+        "User-Agent": "DltHubDemo/1.0 (test@example.com)"
+    }
+    response = requests.get(url, headers=headers, verify=False)
+    response.raise_for_status()
+    # Locationforecast API returns properties.timeseries containing the forecasts
+    yield response.json().get("properties", {}).get("timeseries", [])
+
+@dlt.resource(name="pokemon", write_disposition="replace")
+def get_pokemon_data():
+    """Fetch a few pokemon from PokeAPI to show off nested JSON extraction."""
+    # Let's get the first 10 pokemon to keep it light
+    url = "https://pokeapi.co/api/v2/pokemon?limit=10"
+    response = requests.get(url, verify=False)
+    response.raise_for_status()
+    results = response.json().get("results", [])
+    
+    # We yield the details for each pokemon
+    for p in results:
+        detail_res = requests.get(p["url"], verify=False)
+        detail_res.raise_for_status()
+        yield detail_res.json()
 
 def load_data() -> None:
-    """Initialize the DuckDB database and load dummy data into the raw schema."""
+    """Initialize the DuckDB database and load weather and pokemon data into the raw schema."""
     # Support DB_PATH env var, falling back to default
     db_path = Path(os.environ.get("DB_PATH", DEFAULT_DB_PATH))
     
@@ -24,10 +57,6 @@ def load_data() -> None:
         dataset_name="raw",
     )
     
-    # Dummy data for validation
-    data = [
-        {"id": 1, "name": "Alice", "email": "alice@example.com"},
-        {"id": 2, "name": "Bob", "email": "bob@example.com"},
-    ]
-    
-    pipeline.run(data, table_name="users")
+    # Run the pipeline with the sources
+    info = pipeline.run([get_weather_data(), get_pokemon_data()])
+    print(info)
