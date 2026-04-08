@@ -1,6 +1,10 @@
 version: 2
+
 sources:
-  - name: market_data
-    schema: raw_data
+  - name: my_dlt_data
+    schema: raw
     tables:
-      - name: users
+      - name: weather_oslo
+      - name: pokemon
+      - name: pokemon__types
+      - name: pokemon__stats
