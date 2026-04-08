@@ -1,0 +1,6 @@
+version: 2
+sources:
+  - name: market_data
+    schema: raw_data
+    tables:
+      - name: users

@@ -1,0 +1,70 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  full-load:
+    desc: Run the full data pipeline (ingest + transform)
+    cmds:
+      - task: ingest
+      - task: transform
+
+  duckdb-ui:
+    desc: Launch the DuckDB UI
+    cmds:
+      - uv run db-ui
+
+  bootstrap:
+    desc: Install Python deps and create empty DB
+    cmds:
+      - uv sync
+      - mkdir -p data
+      - uv run python -c "import duckdb; duckdb.connect('data/db.duckdb').execute('SELECT 1;')"
+
+  ingest:
+    desc: Load data via dlt
+    env:
+      DB_PATH: "{{.TASKFILE_DIR}}/data/db.duckdb"
+    cmds:
+      - uv run ingest
+
+  ingest:ui:
+    desc: Launch the dlt UI to inspect the ingestion state
+    cmds:
+      - uv run dlt pipeline template_pipeline show
+
+  transform:
+    desc: Build dbt models in dev, deferring to prod state if it exists. Use '-- -s model_name' to pass arguments.
+    env:
+      DB_PATH: "{{.TASKFILE_DIR}}/data/db.duckdb"
+    cmds:
+      - uv run dbt deps --project-dir transform --profiles-dir profiles
+      - |
+        if [ -f "transform/target_prod/manifest.json" ]; then
+          uv run dbt build --project-dir transform --profiles-dir profiles --defer --state target_prod {{.CLI_ARGS}}
+        else
+          uv run dbt build --project-dir transform --profiles-dir profiles {{.CLI_ARGS}}
+        fi
+
+  transform-prod:
+    desc: Build dbt models using the prod profile for production ready schemas.
+    env:
+      DB_PATH: "{{.TASKFILE_DIR}}/data/db.duckdb"
+    cmds:
+      - uv run dbt deps --project-dir transform --profiles-dir profiles
+      - uv run dbt build --project-dir transform --profiles-dir profiles --target prod {{.CLI_ARGS}}
+      - mkdir -p transform/target_prod
+      - cp transform/target/manifest.json transform/target_prod/manifest.json
+
+  test:
+    desc: Run pytest to validate the database architecture and pipelines.
+    cmds:
+      - uv run python -m pytest tests/
+
+  drop-db:
+    desc: Removes the database
+    cmds:
+      - rm data/db.duckdb
