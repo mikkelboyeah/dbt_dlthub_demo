@@ -7,10 +7,10 @@ tasks:
       - task --list
 
   full-load:
-    desc: Run the full data pipeline (ingest + transform)
+    desc: Run the full data pipeline (ingest + transform-prod)
     cmds:
       - task: ingest
-      - task: transform
+      - task: transform-prod
 
   duckdb-ui:
     desc: Launch the DuckDB UI
